@@ -49,9 +49,21 @@ static char	*ft_strrealloc_ff(char **a, char **b)
 	return (f);
 }
 
-int 		get_next_line_sup(const int fd, char **line, char **temp, char **prev)
+int			get_next_line_sub(const int fd, char **line, char **temp)
 {
+	static char *prevision[256];
 	char		*new_line_pos;
+
+	if (prevision[fd])
+		*temp = ft_strrealloc_ff(&prevision[fd], &(*temp));
+	if (*temp == NULL)
+		return (0);
+	new_line_pos = ft_strchr(*temp, '\n');
+	if (new_line_pos && !(new_line_pos[0] = 0) && new_line_pos[1] != '\0')
+		prevision[fd] = ft_strdup(new_line_pos + 1);
+	(*line) = ft_strdup(*temp);
+	ft_strdel(temp);
+	return ((*line) != NULL);
 }
 
 int			get_next_line(const int fd, char **line)
@@ -59,8 +71,6 @@ int			get_next_line(const int fd, char **line)
 	char		buffer[BUFF_SIZE + 1];
 	int			rs;
 	char		*temp;
-	char		*new_line_pos;
-	static char *prevision[256];
 
 	if (line == NULL || fd < 0 || fd > 256)
 		return (-1);
@@ -75,15 +85,5 @@ int			get_next_line(const int fd, char **line)
 	}
 	if (rs < 0)
 		return (-1);
-	if (prevision[fd])
-		temp = ft_strrealloc_ff(&prevision[fd], &temp);
-	if (temp != NULL)
-		new_line_pos = ft_strchr(temp, '\n');
-	else
-		return (0);
-	if (new_line_pos && !(new_line_pos[0] = 0) && new_line_pos[1] != '\0')
-		prevision[fd] = ft_strdup(new_line_pos + 1);
-	(*line) = ft_strdup(temp);
-	ft_strdel(&temp);
-	return ((*line) != NULL);
+	return (get_next_line_sub(fd, line, &temp));
 }
