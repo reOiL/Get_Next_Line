@@ -51,7 +51,7 @@ static char	*ft_strrealloc_ff(char **a, char **b)
 
 int			get_next_line_sub(const int fd, char **line, char **temp)
 {
-	static char *prevision[256];
+	static char *prevision[10000];
 	char		*new_line_pos;
 
 	if (prevision[fd])
