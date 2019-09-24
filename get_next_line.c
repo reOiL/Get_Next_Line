@@ -13,77 +13,105 @@
 #include "get_next_line.h"
 #include <stdio.h>
 
-static char	*ft_strrealloc(char *a, char *b)
+static void			ft_del(const int fd, t_list **lst)
 {
-	char	*t;
+	t_file	*ff;
+	t_list	*p;
 
-	if (a == NULL && b != NULL)
-		t = ft_strjoin("", b);
-	else if (b == NULL && a != NULL)
-		t = ft_strjoin(a, "");
-	else
-		t = ft_strjoin(a, b);
-	return (t);
+	if (lst == NULL || *lst == NULL)
+		return ;
+	if (!(ff = (*lst)->content))
+		return ;
+	if (ff->fd == fd)
+	{
+		p = *lst;
+		*lst = p->next;
+		ft_strdel(&ff->fdata);
+		ft_memdel((void **)&ff);
+		ft_memdel((void **)&p);
+		return ;
+	}
+	ft_del(fd, &(*lst)->next);
 }
 
-static char	*ft_strrealloc_fo(char **a, char *b)
+static t_file		*f_find(const int fd, t_list **lst)
 {
-	char *f;
+	t_file	*f;
 
-	if (!a)
+	if (lst == NULL)
 		return (NULL);
-	f = ft_strrealloc(*a, b);
-	ft_strdel(a);
-	return (f);
+	if (*lst == NULL)
+	{
+		*lst = ft_lstnew(NULL, 0);
+		if (*lst == NULL)
+			return (NULL);
+		(*lst)->content_size = sizeof(t_file);
+		(*lst)->content = ft_memalloc(sizeof(t_file));
+		if ((*lst)->content == NULL)
+		{
+			ft_memdel((void **)lst);
+			return (NULL);
+		}
+		f = (t_file *)(*lst)->content;
+		f->fd = fd;
+		return (f);
+	}
+	f = (t_file*)((*lst)->content);
+	if (f && f->fd == fd)
+		return (f);
+	return (f_find(fd, &((*lst)->next)));
 }
 
-static char	*ft_strrealloc_ff(char **a, char **b)
+int					get_next_line_sub(t_file *ff, char **line,
+		const int fd, t_list **l)
 {
-	char *f;
-
-	if (!a || !b)
-		return (NULL);
-	f = ft_strrealloc(*a, *b);
-	ft_strdel(a);
-	ft_strdel(b);
-	return (f);
-}
-
-int			get_next_line_sub(const int fd, char **line, char **temp)
-{
-	static char *prevision[10000];
 	char		*new_line_pos;
+	char		*temp;
 
-	if (prevision[fd])
-		*temp = ft_strrealloc_ff(&prevision[fd], &(*temp));
-	if (*temp == NULL)
+	if (ff == NULL || ff->fdata == NULL)
 		return (0);
-	new_line_pos = ft_strchr(*temp, '\n');
-	if (new_line_pos && !(new_line_pos[0] = 0) && new_line_pos[1] != '\0')
-		prevision[fd] = ft_strdup(new_line_pos + 1);
-	(*line) = ft_strdup(*temp);
-	ft_strdel(temp);
+	temp = ft_strdup(ff->fdata);
+	ft_strdel(&ff->fdata);
+	new_line_pos = ft_strchr(temp, '\n');
+	(*line) = 0;
+	if (new_line_pos)
+	{
+		new_line_pos[0] = 0;
+		if (new_line_pos[1] != '\0')
+			ff->fdata = ft_strdup(new_line_pos + 1);
+	}
+	(*line) = ft_strdup(temp);
+	ft_strdel(&temp);
+	if (!ff->fdata)
+		ft_del(fd, l);
 	return ((*line) != NULL);
 }
 
-int			get_next_line(const int fd, char **line)
+int					get_next_line(const int fd, char **line)
 {
-	char		buffer[BUFF_SIZE + 1];
-	int			rs;
-	char		*temp;
+	char				buffer[BUFF_SIZE + 1];
+	int					rs;
+	char				*temp;
+	static t_list		*lst;
+	t_file				*ff;
 
-	if (line == NULL || fd < 0 || fd > 256)
+	if ((line == NULL || fd < 0) || !(ff = f_find(fd, &lst)))
 		return (-1);
-	temp = NULL;
 	while ((rs = read(fd, buffer, BUFF_SIZE)) > 0)
 	{
 		buffer[rs] = '\0';
-		if (!(temp = ft_strrealloc_fo(&temp, buffer)))
+		temp = ff->fdata;
+		ff->fdata = ft_strjoin((ff->fdata == NULL ? "" : ff->fdata), buffer);
+		ft_strdel(&temp);
+		if (!ff->fdata)
 			return (-1);
 		if ((ft_strchr(buffer, '\n')))
 			break ;
 	}
 	if (rs < 0)
+	{
+		ft_del(fd, &lst);
 		return (-1);
-	return (get_next_line_sub(fd, line, &temp));
+	}
+	return (get_next_line_sub(ff, line, fd, &lst));
 }
